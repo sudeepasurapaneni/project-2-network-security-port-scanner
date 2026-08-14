@@ -38,7 +38,7 @@ export function isValidIPv4(ip: string): boolean {
 }
 
 /** Real TCP connect check against one port. */
-export function scanPort(
+function nodeScanPort(
   host: string,
   port: number,
   timeoutMs: number,
@@ -109,4 +109,58 @@ export async function scanRange(
 
   results.sort((a, b) => a.port - b.port);
   return results;
+}
+
+/** Cloudflare Workers fallback using the native socket API. */
+async function cfScanPort(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<PortResult> {
+  const base = { port, protocol: "TCP" as const, service: identifyService(port) };
+  try {
+    const mod: { connect: (a: { hostname: string; port: number }) => { opened: Promise<unknown>; close: () => Promise<void> } } =
+      await import(/* @vite-ignore */ "cloudflare" + ":sockets");
+    const socket = mod.connect({ hostname: host, port });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("__timeout__")), timeoutMs);
+    });
+    try {
+      await Promise.race([socket.opened, timeout]);
+      return { ...base, status: "OPEN", detail: "TCP handshake succeeded" };
+    } finally {
+      if (timer) clearTimeout(timer);
+      try {
+        await socket.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("__timeout__"))
+      return { ...base, status: "FILTERED", detail: "No response before timeout" };
+    if (/refused/i.test(msg))
+      return { ...base, status: "CLOSED", detail: "Connection refused" };
+    if (/unreachable|not allowed|proxy/i.test(msg))
+      return { ...base, status: "ERROR", detail: "Host unreachable or blocked" };
+    return { ...base, status: "ERROR", detail: msg.slice(0, 120) };
+  }
+}
+
+/** Runtime-agnostic single port check. */
+export async function scanPort(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<PortResult> {
+  const result = await nodeScanPort(host, port, timeoutMs);
+  if (
+    result.status === "ERROR" &&
+    /not implemented|unenv|ERR_[A-Z_]+|not a function/i.test(result.detail)
+  ) {
+    return cfScanPort(host, port, timeoutMs);
+  }
+  return result;
 }
