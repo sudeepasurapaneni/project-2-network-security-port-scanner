@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IP Port Scanner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>IP Port Scanner</h1>
+      <p>Checks which TCP ports are open on an authorized target, using plain Python sockets.</p>
+    </header>
+
+    <p class="notice" role="alert">
+      Only scan systems you own or have explicit permission to test.
+    </p>
+
+    <!-- INPUT PANEL -->
+    <section class="card">
+      <h2>Scan settings</h2>
+      <div class="grid">
+        <div>
+          <label for="target">Target IPv4 address</label>
+          <input id="target" type="text" value="127.0.0.1" placeholder="e.g. 127.0.0.1" />
+        </div>
+        <div>
+          <label for="startPort">Start port (1-65535)</label>
+          <input id="startPort" type="number" min="1" max="65535" value="1" />
+        </div>
+        <div>
+          <label for="endPort">End port (1-65535)</label>
+          <input id="endPort" type="number" min="1" max="65535" value="1024" />
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="scanBtn" class="primary" type="button">Scan</button>
+        <button id="stopBtn" class="danger" type="button" disabled>Stop Scan</button>
+        <button id="csvBtn" type="button" disabled>Export CSV</button>
+        <button id="txtBtn" type="button" disabled>Export TXT</button>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+
+      <p class="error" id="errorBox" aria-live="polite"></p>
+      <p class="hint">Safe local test: target <strong>127.0.0.1</strong>, ports <strong>1-1024</strong>.</p>
+    </section>
+
+    <!-- PROGRESS -->
+    <section class="card">
+      <h2>Progress</h2>
+      <progress id="progressBar" value="0" max="100"></progress>
+      <p class="hint" id="progressText">Idle.</p>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="card">
+      <h2>Results</h2>
+      <div class="summary">
+        <div><span>Target</span><strong id="sumTarget">-</strong></div>
+        <div><span>Ports scanned</span><strong id="sumRange">-</strong></div>
+        <div><span>Total scanned</span><strong id="sumTotal">0</strong></div>
+        <div><span>Open</span><strong id="sumOpen">0</strong></div>
+        <div><span>Closed</span><strong id="sumClosed">0</strong></div>
+        <div><span>Filtered / other</span><strong id="sumOther">0</strong></div>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Port</th><th>Status</th><th>Protocol</th><th>Service (likely)</th></tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <p class="hint">
+        Service names are guessed from the port number only. They show the
+        <em>common / likely</em> service, not proof of what is really running.
+      </p>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
